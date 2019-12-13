@@ -1,44 +1,45 @@
-# transformer finetuning
-## setup
-### apex
-`git clone https://github.com/NVIDIA/apex`
-`cd apex && pip install -v --no-cache-dir .`
-### glue
-    git clone https://gist.github.com/60c2bdb54d156a41194446737ce03e2e.git glue_downloading
-    python glue_downloading/download_glue_data.py --data_dir /docker-share/data/glue --tasks all
-    python glue_downloading/download_glue_data.py --data_dir data/glue --tasks all
+# NLP-stuff that I'm working on
+* [NLP-progress](https://github.com/sebastianruder/NLP-progress)
 
-### finetune on glue-task
+## transformer fine-tuning
+* [sentence-transformers](https://github.com/UKPLab/sentence-transformers)
+* [huggingface](https://github.com/huggingface/transformers)
+* [FARM](https://github.com/deepset-ai/FARM)
 
-export GLUE_DIR=../data/glue
-export TASK_NAME=MNLI
+### germEval-2014 NER 
+* [huggingface](https://github.com/huggingface/transformers/blob/7296f1010b6faaf3b1fb409bc5a9ebadcea51973/examples/run_ner.py#L28) vs. [FARM](https://github.com/deepset-ai/FARM/blob/7b60e4ea12c82185196bd6de9c33baeefe8bd75b/farm/metrics.py#L5) use [span-level-micro-averaged-f1](https://github.com/chakki-works/seqeval/blob/445d99798f6969f606dbf5978d936d5a8b33bbd1/seqeval/metrics/sequence_labeling.py#L116)
+* [Deepset](https://deepset.ai/german-bert) reports 0.84
+* could reproduce with FARM: Test_seq_f1_ner = 0.84 vs. huggingface: Test_seq_f1_ner =  0.86
+* what are reasons for performance-gap?
+    * differenced caused by random seed? dropout?
+    
+### GLUE
+* [MNLI-kaggle](https://inclass.kaggle.com/c/multinli-matched-open-evaluation/data); [MNLI](https://www.nyu.edu/projects/bowman/multinli/)
+### [SQUAD 2.0](https://rajpurkar.github.io/SQuAD-explorer)
 
-python examples/run_glue.py \
-  --model_type bert \
-  --model_name_or_path bert-base-uncased \
-  --task_name $TASK_NAME \
-  --do_train \
-  --do_eval \
-  --do_lower_case \
-  --data_dir $GLUE_DIR/$TASK_NAME \
-  --max_seq_length 128 \
-  --per_gpu_train_batch_size 8 \
-  --learning_rate 2e-5 \
-  --num_train_epochs 3.0 \
-  --output_dir checkpoints/$TASK_NAME/ \
-  --save_steps 1000 \
-  --overwrite_output_dir \
-  --fp16 \
-  --max_steps 30 \
-  --seed 1
+* [huggingface](https://huggingface.co/transformers/examples.html#squad)
 
+## Elasticsearch
+* [bertsearch](https://github.com/Hironsan/bertsearch)
 
-      
-#### MRPC-dataset
+## discourse parsing
+* [discopy](https://github.com/rknaebel/discopy)
+* [shallow-discourse-parser](https://github.com/atreyasha/shallow-discourse-parser)
 
-    11/29/2019 16:02:46 - INFO - __main__ -   ***** Eval results  *****
-    11/29/2019 16:02:46 - INFO - __main__ -     acc = 0.8627450980392157
-    11/29/2019 16:02:46 - INFO - __main__ -     acc_and_f1 = 0.8825920612147299
-    11/29/2019 16:02:46 - INFO - __main__ -     f1 = 0.902439024390244
-      
-  
+# TODO: 
+* [fairseq](https://github.com/pytorch/fairseq)
+* [mednli](https://github.com/jgc128/mednli)
+* [Pytorch-OCR-Fully-Convolutional](https://github.com/lysecret2/Pytorch-OCR-Fully-Convolutional)
+* [SmartDataAnalytics/OpenResearch](https://github.com/SmartDataAnalytics/OpenResearch)
+* [QUD-comp](https://github.com/QUD-comp/QUD-comp)
+* [openlaws.com](https://openlaws.com/home)
+* [germeval-2019](https://www.inf.uni-hamburg.de/en/inst/ab/lt/resources/data/germeval-2019-hmc.html)
+* [QALD-9](http://2018.nliwod.org/challenge)
+
+# NLP-tasks+datasets
+
+## [SQUAD 2.0](https://rajpurkar.github.io/SQuAD-explorer/)
+* Extractive reading comprehension
+* SQuAD 2.0 combines existing SQuAD data with over 50,000 unanswerable questions 
+* system must learn to determine when no answer is supported by the paragraph and abstain from answering.
+* we report average exact match and F1 scores; For negative examples, abstaining receives a score of 1, and any other response gets 0, for both exact match and F1
