@@ -35,11 +35,21 @@
 * [openlaws.com](https://openlaws.com/home)
 * [germeval-2019](https://www.inf.uni-hamburg.de/en/inst/ab/lt/resources/data/germeval-2019-hmc.html)
 * [QALD-9](http://2018.nliwod.org/challenge)
+* [recon](https://github.com/DFKI-NLP/recon)
 
 # NLP-tasks+datasets
 
-## [SQUAD 2.0](https://rajpurkar.github.io/SQuAD-explorer/)
+## closed domain QA
+* [haystack](https://github.com/deepset-ai/haystack) vs. [cdQA](https://github.com/cdqa-suite/cdQA#Evaluating-models) -> who got inspired by who?
+
+### [Natural Questions](https://ai.google.com/research/NaturalQuestions/dataset) on [github](https://github.com/google-research-datasets/natural-questions)
+* Natural Questions (NQ) contains real user questions issued to Google search; answers found from Wikipedia by annotators
+* paper: `Natural Questions: a Benchmark for Question Answering Research` by `Tom Kwiatkowski`
+
+### [SQUAD 2.0](https://rajpurkar.github.io/SQuAD-explorer/)
 * Extractive reading comprehension
 * SQuAD 2.0 combines existing SQuAD data with over 50,000 unanswerable questions 
 * system must learn to determine when no answer is supported by the paragraph and abstain from answering.
 * we report average exact match and F1 scores; For negative examples, abstaining receives a score of 1, and any other response gets 0, for both exact match and F1
+
+* [hugginface-people](https://github.com/huggingface/transformers/issues/947) did not yet reproduce SQUAD2.0 results?
