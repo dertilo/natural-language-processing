@@ -5,6 +5,7 @@
 * [sentence-transformers](https://github.com/UKPLab/sentence-transformers)
 * [huggingface](https://github.com/huggingface/transformers)
 * [FARM](https://github.com/deepset-ai/FARM)
+* [deepset-mlflow](https://public-mlflow.deepset.ai/#/)
 
 ### germEval-2014 NER 
 * [huggingface](https://github.com/huggingface/transformers/blob/7296f1010b6faaf3b1fb409bc5a9ebadcea51973/examples/run_ner.py#L28) vs. [FARM](https://github.com/deepset-ai/FARM/blob/7b60e4ea12c82185196bd6de9c33baeefe8bd75b/farm/metrics.py#L5) use [span-level-micro-averaged-f1](https://github.com/chakki-works/seqeval/blob/445d99798f6969f606dbf5978d936d5a8b33bbd1/seqeval/metrics/sequence_labeling.py#L116)
@@ -15,6 +16,7 @@
     
 ### GLUE
 * [MNLI-kaggle](https://inclass.kaggle.com/c/multinli-matched-open-evaluation/data); [MNLI](https://www.nyu.edu/projects/bowman/multinli/)
+
 ### [SQUAD 2.0](https://rajpurkar.github.io/SQuAD-explorer)
 
 * [huggingface](https://huggingface.co/transformers/examples.html#squad)
@@ -36,6 +38,7 @@
 * [germeval-2019](https://www.inf.uni-hamburg.de/en/inst/ab/lt/resources/data/germeval-2019-hmc.html)
 * [QALD-9](http://2018.nliwod.org/challenge)
 * [recon](https://github.com/DFKI-NLP/recon)
+* [legal-NER](https://github.com/openlegaldata/legal-ner)
 
 # NLP-tasks+datasets
 
@@ -53,3 +56,14 @@
 * we report average exact match and F1 scores; For negative examples, abstaining receives a score of 1, and any other response gets 0, for both exact match and F1
 
 * [hugginface-people](https://github.com/huggingface/transformers/issues/947) did not yet reproduce SQUAD2.0 results?
+
+### speech denoising/enhancement
+
+* [sprocket](https://github.com/k2kobayashi/sprocket)
+    * voice-conversion, seems to be too handcrafted
+* [sednn](https://github.com/yongxuUSTC/sednn)
+    * [see](https://github.com/yongxuUSTC/sednn/tree/master/mixture2clean_dnn)
+* [gcc-nmf](https://github.com/seanwood/gcc-nmf)
+    * Speech enhancement is performed directly on the stereo mixture signal using no additional data
+* [denoising wavenet](https://github.com/drethage/speech-denoising-wavenet)
+    * I cannot hear the enhancement
