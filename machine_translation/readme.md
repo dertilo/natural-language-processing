@@ -56,7 +56,8 @@ en-pt training
     --criterion label_smoothed_cross_entropy --label-smoothing 0.1 \
     --lr-scheduler fixed --force-anneal 50 \
     --save-dir checkpoints/en_pt
-    
+#### results
+![pt-en](images/pt_en.png)
 ### deployment
     rsync -avz -e "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" --progress /home/tilo/data/models/MT gunther@gunther:/home/gunther/tilo_data/
 
