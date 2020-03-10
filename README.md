@@ -67,11 +67,10 @@
     * Speech enhancement is performed directly on the stereo mixture signal using no additional data
 * [denoising wavenet](https://github.com/drethage/speech-denoising-wavenet)
     * I cannot hear the enhancement
-    
-### machine translation
 
-#### libraries
-* [fairseq-mt](https://github.com/pytorch/fairseq/tree/master/examples/translation)
-#### datasets
-* [movie-subtitles](http://opus.nlpl.eu/OpenSubtitles-v2018.php)
-* [europal](https://www.statmt.org/europarl/)
+### TTS
+
+NATURAL TTS SYNTHESIS BY CONDITIONING WAVENET ON MEL SPECTROGRAM PREDICTIONS [Shen 2018]
+` 24.6 hours of speech from a single professional female speaker.`
+
+### [machine translation](machine_translation)
