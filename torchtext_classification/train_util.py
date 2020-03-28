@@ -25,15 +25,6 @@ class TrainParams(NamedTuple):
 
 
 def train_and_valid(model, criterion, sub_train_, sub_valid_, params: TrainParams):
-    r"""
-    We use a SGD optimizer to train the model here and the learning rate
-    decreases linearly with the progress of the training process.
-
-    Arguments:
-        lr_: learning rate
-        sub_train_: the data used to train the model
-        sub_valid_: the data used for validation
-    """
     model.train()
     model.to(device)
     optimizer = torch.optim.SGD(model.parameters(), lr=params.lr)
@@ -74,10 +65,6 @@ def train_and_valid(model, criterion, sub_train_, sub_valid_, params: TrainParam
 
 
 def evaluate(model, data_, batch_size=16):
-    r"""
-    Arguments:
-        data_: the data used to train the model
-    """
     data = DataLoader(data_, batch_size=batch_size, collate_fn=generate_batch)
     total_accuracy = []
     for text, offsets, cls in data:
@@ -87,7 +74,6 @@ def evaluate(model, data_, batch_size=16):
             accuracy = (output.argmax(1) == cls).float().mean().item()
             total_accuracy.append(accuracy)
 
-    # In case that nothing in the dataset
     if total_accuracy == []:
         return 0.0
 

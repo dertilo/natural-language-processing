@@ -6,7 +6,7 @@ import torch
 
 from torchtext.datasets import text_classification
 
-from text_clf_models import TextSentiment
+from text_clf_models import EmbeddingBagClfModel
 from torch.utils.data.dataset import random_split
 
 from train_util import train_and_valid, evaluate, TrainParams
@@ -28,13 +28,12 @@ if __name__ == "__main__":
     split_ratio = 0.95
 
     if not os.path.exists(data):
-        print("Creating directory {}".format(data))
         os.mkdir(data)
 
     train_dataset, test_dataset = text_classification.DATASETS[args.dataset](
         root=data, ngrams=num_ngrams
     )
-    model = TextSentiment(
+    model = EmbeddingBagClfModel(
         len(train_dataset.get_vocab()), embed_dim, len(train_dataset.get_labels())
     )
 
