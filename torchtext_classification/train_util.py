@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def generate_batch(batch):
+def generate_seqconcat_batch(batch): # TODO(tilo): for EmbeddingBag only!
     label = torch.tensor([entry[0] for entry in batch])
     text = [entry[1] for entry in batch]
     offsets = [0] + [len(entry) for entry in text]
@@ -33,7 +33,7 @@ def train_and_valid(model, criterion, sub_train_, sub_valid_, params: TrainParam
         sub_train_,
         batch_size=params.batch_size,
         shuffle=True,
-        collate_fn=generate_batch,
+        collate_fn=generate_seqconcat_batch,
         num_workers=params.num_workers,
     )
     num_lines = params.num_epochs * len(train_data)
@@ -65,7 +65,7 @@ def train_and_valid(model, criterion, sub_train_, sub_valid_, params: TrainParam
 
 
 def evaluate(model, data_, batch_size=16):
-    data = DataLoader(data_, batch_size=batch_size, collate_fn=generate_batch)
+    data = DataLoader(data_, batch_size=batch_size, collate_fn=generate_seqconcat_batch)
     total_accuracy = []
     for text, offsets, cls in data:
         text, offsets, cls = text.to(device), offsets.to(device), cls.to(device)
