@@ -24,9 +24,21 @@ if __name__ == "__main__":
 
     dataset_Name = "AG_NEWS"
     assert dataset_Name in text_classification.DATASETS
-    train_dataset, test_dataset = text_classification.DATASETS[dataset_Name](
-        root=data, ngrams=num_ngrams
-    )
+    train_data_file = os.path.join(data, 'train_dataset.pt')
+    test_data_file = os.path.join(data, 'test_dataset.pt')
+
+    if not os.path.isfile(train_data_file):
+        print('creating datasets')
+        train_dataset, test_dataset = text_classification.DATASETS[dataset_Name](
+            root=data, ngrams=num_ngrams
+        )
+        torch.save(train_dataset, train_data_file)
+        torch.save(test_dataset, test_data_file)
+    else:
+        print('loading preprocessed datasets')
+        train_dataset = torch.load(train_data_file)
+        test_dataset = torch.load(test_data_file)
+
     vocab_size = len(train_dataset.get_vocab())
     num_class = len(train_dataset.get_labels())
 
