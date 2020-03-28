@@ -1,30 +1,13 @@
 import sys
+from typing import NamedTuple
 
 import torch
 from torch.utils.data import DataLoader
 
-from train import model, args, batch_size, num_epochs, device, criterion
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def generate_batch(batch):
-    r"""
-    Since the text entries have different lengths, a custom function
-    generate_batch() is used to generate data batches and offsets,
-    which are compatible with EmbeddingBag. The function is passed
-    to 'collate_fn' in torch.utils.data.DataLoader. The input to
-    'collate_fn' is a list of tensors with the size of batch_size,
-    and the 'collate_fn' function packs them into a mini-batch.
-    Pay attention here and make sure that 'collate_fn' is declared
-    as a top level def. This ensures that the function is available
-    in each worker.
-
-    Output:
-        text: the text entries in the data_batch are packed into a list and
-            concatenated as a single tensor for the input of nn.EmbeddingBag.
-        offsets: the offsets is a tensor of delimiters to represent the beginning
-            index of the individual sequence in the text tensor.
-        cls: a tensor saving the labels of individual text entries.
-    """
     label = torch.tensor([entry[0] for entry in batch])
     text = [entry[1] for entry in batch]
     offsets = [0] + [len(entry) for entry in text]
@@ -33,7 +16,15 @@ def generate_batch(batch):
     return text, offsets, label
 
 
-def train_and_valid(lr_, sub_train_, sub_valid_):
+class TrainParams(NamedTuple):
+    lr: float
+    lr_gamma: float
+    batch_size: int = 16
+    num_workers: int = 2
+    num_epochs: int = 5
+
+
+def train_and_valid(model, criterion, sub_train_, sub_valid_, params: TrainParams):
     r"""
     We use a SGD optimizer to train the model here and the learning rate
     decreases linearly with the progress of the training process.
@@ -43,19 +34,20 @@ def train_and_valid(lr_, sub_train_, sub_valid_):
         sub_train_: the data used to train the model
         sub_valid_: the data used for validation
     """
-
-    optimizer = torch.optim.SGD(model.parameters(), lr=lr_)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=args.lr_gamma)
+    model.train()
+    model.to(device)
+    optimizer = torch.optim.SGD(model.parameters(), lr=params.lr)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=params.lr_gamma)
     train_data = DataLoader(
         sub_train_,
-        batch_size=batch_size,
+        batch_size=params.batch_size,
         shuffle=True,
         collate_fn=generate_batch,
-        num_workers=args.num_workers,
+        num_workers=params.num_workers,
     )
-    num_lines = num_epochs * len(train_data)
+    num_lines = params.num_epochs * len(train_data)
 
-    for epoch in range(num_epochs):
+    for epoch in range(params.num_epochs):
 
         # Train the model
         for i, (text, offsets, cls) in enumerate(train_data):
@@ -78,10 +70,10 @@ def train_and_valid(lr_, sub_train_, sub_valid_):
 
         # Test the model on valid set
         print("")
-        print("Valid - Accuracy: {}".format(evaluate(sub_valid_)))
+        print("Valid - Accuracy: {}".format(evaluate(model, sub_valid_)))
 
 
-def evaluate(data_):
+def evaluate(model, data_, batch_size=16):
     r"""
     Arguments:
         data_: the data used to train the model
