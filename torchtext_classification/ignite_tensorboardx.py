@@ -76,7 +76,7 @@ def generate_seqconcat_batch(batch):  # TODO(tilo): for EmbeddingBag only!
     offsets = [0] + [len(entry) for entry in text]
     offsets = torch.tensor(offsets[:-1]).cumsum(dim=0)
     text = torch.cat(text)
-    return text, offsets, label
+    return (text, offsets), label
 
 
 def get_data_loaders(train_dataset, params: TrainParams):

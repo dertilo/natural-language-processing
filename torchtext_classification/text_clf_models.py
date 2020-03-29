@@ -15,7 +15,8 @@ class EmbeddingBagClfModel(nn.Module):
         self.fc.weight.data.uniform_(-initrange, initrange)
         self.fc.bias.data.zero_()
 
-    def forward(self, text, offsets):
+    def forward(self, x):
+        text, offsets = x
         return self.fc(self.embedding(text, offsets))
 
 
