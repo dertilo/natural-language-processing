@@ -68,6 +68,18 @@ def get_data_loaders(train_batch_size, val_batch_size):
     )
     return train_loader, val_loader
 
+def gpuinfo_metrics(trainer):
+    if sys.version_info > (3,):
+        from ignite.contrib.metrics.gpu_info import GpuInfo
+
+        try:
+            GpuInfo().attach(trainer)
+        except RuntimeError:
+            print(
+                "INFO: By default, in this example it is possible to log GPU information (used memory, utilization). "
+                "As there is no pynvml python package installed, GPU information won't be logged. Otherwise, please "
+                "install it : `pip install pynvml`"
+            )
 
 def run(train_batch_size, val_batch_size, epochs, lr, momentum, log_dir):
     train_loader, val_loader = get_data_loaders(train_batch_size, val_batch_size)
@@ -81,17 +93,7 @@ def run(train_batch_size, val_batch_size, epochs, lr, momentum, log_dir):
     criterion = nn.CrossEntropyLoss()
     trainer = create_supervised_trainer(model, optimizer, criterion, device=device)
 
-    if sys.version_info > (3,):
-        from ignite.contrib.metrics.gpu_info import GpuInfo
-
-        try:
-            GpuInfo().attach(trainer)
-        except RuntimeError:
-            print(
-                "INFO: By default, in this example it is possible to log GPU information (used memory, utilization). "
-                "As there is no pynvml python package installed, GPU information won't be logged. Otherwise, please "
-                "install it : `pip install pynvml`"
-            )
+    gpuinfo_metrics(trainer)
 
     metrics = {"accuracy": Accuracy(), "loss": Loss(criterion)}
 
@@ -163,6 +165,6 @@ if __name__ == "__main__":
     formatter = logging.Formatter("%(asctime)s %(name)-12s %(levelname)-8s %(message)s")
     handler.setFormatter(formatter)
     logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.WARNING)
 
     run(args.batch_size, args.val_batch_size, args.epochs, args.lr, args.momentum, args.log_dir)
