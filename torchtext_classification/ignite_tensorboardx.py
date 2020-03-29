@@ -23,6 +23,8 @@ import logging
 from typing import NamedTuple
 
 import torch
+from ignite.contrib.handlers import ProgressBar
+from torch.optim.adam import Adam
 from torch.utils.data import DataLoader
 from torch import nn
 import torch.nn.functional as F
@@ -30,7 +32,7 @@ from torch.optim import SGD
 from torchtext.datasets import text_classification
 
 from ignite.engine import Events, create_supervised_trainer, create_supervised_evaluator
-from ignite.metrics import Accuracy, Loss
+from ignite.metrics import Accuracy, Loss, RunningAverage
 from ignite.contrib.handlers.tensorboard_logger import *
 from torch.utils.data.dataset import random_split
 
@@ -45,7 +47,7 @@ class TrainParams(NamedTuple):
     lr_gamma: float
     batch_size: int = 16
     eval_batch_size: int = 32
-    num_workers: int = 2
+    num_workers: int = 0
     num_epochs: int = 5
     momentum: float = 0.5
     log_dir: str = "tensorboard_logs"
@@ -125,7 +127,7 @@ def run(params: TrainParams):
     train_loader, val_loader = get_data_loaders(train_dataset, params)
     model = EmbeddingBagClfModel(vocab_size, 32, num_class)
 
-    optimizer = SGD(model.parameters(), lr=params.lr, momentum=params.momentum)
+    optimizer = Adam(model.parameters(), lr=params.lr)
     criterion = nn.CrossEntropyLoss()
     trainer = create_supervised_trainer(model, optimizer, criterion, device=device)
 
@@ -142,6 +144,14 @@ def run(params: TrainParams):
     def compute_metrics(engine):
         train_evaluator.run(train_loader)
         validation_evaluator.run(val_loader)
+
+    RunningAverage(output_transform=lambda x: x,alpha=0.99).attach(trainer, "loss")
+    pbar = ProgressBar(persist=True)
+    pbar.attach(trainer, metric_names=["loss"])
+
+    RunningAverage(src=metrics['accuracy'],alpha=0.99).attach(validation_evaluator, "running-acc")
+    pbar_eval = ProgressBar(persist=True)
+    pbar_eval.attach(validation_evaluator, metric_names=["running-acc"])
 
     tb_logger = TensorboardLogger(log_dir=params.log_dir)
 
@@ -214,4 +224,4 @@ if __name__ == "__main__":
     logger.addHandler(handler)
     logger.setLevel(logging.WARNING)
 
-    run(TrainParams(4.0, 0.8))
+    run(TrainParams(0.01, 0.8,num_epochs=1))
