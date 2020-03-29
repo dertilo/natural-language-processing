@@ -1,20 +1,26 @@
 """
  MNIST example with training and validation monitoring using TensorboardX and Tensorboard.
+
  Requirements:
-    TensorboardX (https://github.com/lanpa/tensorboard-pytorch): `pip install tensorboardX`
+    Optionally TensorboardX (https://github.com/lanpa/tensorboard-pytorch): `pip install tensorboardX`
     Tensorboard: `pip install tensorflow` (or just install tensorboard without the rest of tensorflow)
+
  Usage:
+
     Start tensorboard:
     ```bash
     tensorboard --logdir=/tmp/tensorboard_logs/
     ```
+
     Run the example:
     ```bash
-    python mnist_with_tensorboardx.py --log_dir=/tmp/tensorboard_logs
+    python mnist_with_tensorboard_logger.py --log_dir=/tmp/tensorboard_logs
     ```
 """
-
+import sys
 from argparse import ArgumentParser
+import logging
+
 import torch
 from torch.utils.data import DataLoader
 from torch import nn
@@ -23,13 +29,12 @@ from torch.optim import SGD
 from torchvision.datasets import MNIST
 from torchvision.transforms import Compose, ToTensor, Normalize
 
-try:
-    from tensorboardX import SummaryWriter
-except ImportError:
-    raise RuntimeError("No tensorboardX package is found. Please install with the command: \npip install tensorboardX")
-
 from ignite.engine import Events, create_supervised_trainer, create_supervised_evaluator
 from ignite.metrics import Accuracy, Loss
+from ignite.contrib.handlers.tensorboard_logger import *
+
+
+LOG_INTERVAL = 10
 
 
 class Net(nn.Module):
@@ -64,72 +69,77 @@ def get_data_loaders(train_batch_size, val_batch_size):
     return train_loader, val_loader
 
 
-def create_summary_writer(model, data_loader, log_dir):
-    writer = SummaryWriter(logdir=log_dir)
-    data_loader_iter = iter(data_loader)
-    x, y = next(data_loader_iter)
-    try:
-        writer.add_graph(model, x)
-    except Exception as e:
-        print("Failed to save model graph: {}".format(e))
-    return writer
-
-
-def run(train_batch_size, val_batch_size, epochs, lr, momentum, log_interval, log_dir):
+def run(train_batch_size, val_batch_size, epochs, lr, momentum, log_dir):
     train_loader, val_loader = get_data_loaders(train_batch_size, val_batch_size)
     model = Net()
-    writer = create_summary_writer(model, train_loader, log_dir)
     device = "cpu"
 
     if torch.cuda.is_available():
         device = "cuda"
 
     optimizer = SGD(model.parameters(), lr=lr, momentum=momentum)
-    trainer = create_supervised_trainer(model, optimizer, F.nll_loss, device=device)
-    evaluator = create_supervised_evaluator(
-        model, metrics={"accuracy": Accuracy(), "nll": Loss(F.nll_loss)}, device=device
+    criterion = nn.CrossEntropyLoss()
+    trainer = create_supervised_trainer(model, optimizer, criterion, device=device)
+
+    if sys.version_info > (3,):
+        from ignite.contrib.metrics.gpu_info import GpuInfo
+
+        try:
+            GpuInfo().attach(trainer)
+        except RuntimeError:
+            print(
+                "INFO: By default, in this example it is possible to log GPU information (used memory, utilization). "
+                "As there is no pynvml python package installed, GPU information won't be logged. Otherwise, please "
+                "install it : `pip install pynvml`"
+            )
+
+    metrics = {"accuracy": Accuracy(), "loss": Loss(criterion)}
+
+    train_evaluator = create_supervised_evaluator(model, metrics=metrics, device=device)
+    validation_evaluator = create_supervised_evaluator(model, metrics=metrics, device=device)
+
+    @trainer.on(Events.EPOCH_COMPLETED)
+    def compute_metrics(engine):
+        train_evaluator.run(train_loader)
+        validation_evaluator.run(val_loader)
+
+    tb_logger = TensorboardLogger(log_dir=log_dir)
+
+    tb_logger.attach(
+        trainer,
+        log_handler=OutputHandler(
+            tag="training", output_transform=lambda loss: {"batchloss": loss}, metric_names="all"
+        ),
+        event_name=Events.ITERATION_COMPLETED(every=100),
     )
 
-    @trainer.on(Events.ITERATION_COMPLETED(every=log_interval))
-    def log_training_loss(engine):
-        print(
-            "Epoch[{}] Iteration[{}/{}] Loss: {:.2f}"
-            "".format(engine.state.epoch, engine.state.iteration, len(train_loader), engine.state.output)
-        )
-        writer.add_scalar("training/loss", engine.state.output, engine.state.iteration)
+    tb_logger.attach(
+        train_evaluator,
+        log_handler=OutputHandler(tag="training", metric_names=["loss", "accuracy"], another_engine=trainer),
+        event_name=Events.EPOCH_COMPLETED,
+    )
 
-    @trainer.on(Events.EPOCH_COMPLETED)
-    def log_training_results(engine):
-        evaluator.run(train_loader)
-        metrics = evaluator.state.metrics
-        avg_accuracy = metrics["accuracy"]
-        avg_nll = metrics["nll"]
-        print(
-            "Training Results - Epoch: {}  Avg accuracy: {:.2f} Avg loss: {:.2f}".format(
-                engine.state.epoch, avg_accuracy, avg_nll
-            )
-        )
-        writer.add_scalar("training/avg_loss", avg_nll, engine.state.epoch)
-        writer.add_scalar("training/avg_accuracy", avg_accuracy, engine.state.epoch)
+    tb_logger.attach(
+        validation_evaluator,
+        log_handler=OutputHandler(tag="validation", metric_names=["loss", "accuracy"], another_engine=trainer),
+        event_name=Events.EPOCH_COMPLETED,
+    )
 
-    @trainer.on(Events.EPOCH_COMPLETED)
-    def log_validation_results(engine):
-        evaluator.run(val_loader)
-        metrics = evaluator.state.metrics
-        avg_accuracy = metrics["accuracy"]
-        avg_nll = metrics["nll"]
-        print(
-            "Validation Results - Epoch: {}  Avg accuracy: {:.2f} Avg loss: {:.2f}".format(
-                engine.state.epoch, avg_accuracy, avg_nll
-            )
-        )
-        writer.add_scalar("valdation/avg_loss", avg_nll, engine.state.epoch)
-        writer.add_scalar("valdation/avg_accuracy", avg_accuracy, engine.state.epoch)
+    tb_logger.attach(
+        trainer, log_handler=OptimizerParamsHandler(optimizer), event_name=Events.ITERATION_COMPLETED(every=100)
+    )
+
+    tb_logger.attach(trainer, log_handler=WeightsScalarHandler(model), event_name=Events.ITERATION_COMPLETED(every=100))
+
+    tb_logger.attach(trainer, log_handler=WeightsHistHandler(model), event_name=Events.EPOCH_COMPLETED(every=100))
+
+    tb_logger.attach(trainer, log_handler=GradsScalarHandler(model), event_name=Events.ITERATION_COMPLETED(every=100))
+
+    tb_logger.attach(trainer, log_handler=GradsHistHandler(model), event_name=Events.EPOCH_COMPLETED(every=100))
 
     # kick everything off
     trainer.run(train_loader, max_epochs=epochs)
-
-    writer.close()
+    tb_logger.close()
 
 
 if __name__ == "__main__":
@@ -142,12 +152,17 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=0.01, help="learning rate (default: 0.01)")
     parser.add_argument("--momentum", type=float, default=0.5, help="SGD momentum (default: 0.5)")
     parser.add_argument(
-        "--log_interval", type=int, default=10, help="how many batches to wait before logging training status"
-    )
-    parser.add_argument(
         "--log_dir", type=str, default="tensorboard_logs", help="log directory for Tensorboard log output"
     )
 
     args = parser.parse_args()
 
-    run(args.batch_size, args.val_batch_size, args.epochs, args.lr, args.momentum, args.log_interval, args.log_dir)
+    # Setup engine logger
+    logger = logging.getLogger("ignite.engine.engine.Engine")
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter("%(asctime)s %(name)-12s %(levelname)-8s %(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    run(args.batch_size, args.val_batch_size, args.epochs, args.lr, args.momentum, args.log_dir)
