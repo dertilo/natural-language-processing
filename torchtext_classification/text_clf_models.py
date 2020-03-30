@@ -26,7 +26,7 @@ class ConvNNClassifier(nn.Module):
     def __init__(self, vocab_size, embed_dim, num_classes, num_channels):
         super().__init__()
 
-        self.embedding = nn.EmbeddingBag(vocab_size, embed_dim, sparse=True)
+        self.embedding = nn.Embedding(vocab_size, embed_dim)
         self.convnet = nn.Sequential(
             nn.Conv1d(in_channels=embed_dim, out_channels=num_channels, kernel_size=3),
             nn.ELU(),
@@ -49,9 +49,12 @@ class ConvNNClassifier(nn.Module):
             ),
             nn.ELU(),
         )
+        self.pooling = nn.AdaptiveAvgPool1d(1)
         self.fc = nn.Linear(num_channels, num_classes)
 
-    def forward(self, text, offsets):
-        x = self.embedding(text, offsets)
-        features = self.convnet(x).squeeze(dim=2)
-        return self.fc(features)
+    def forward(self, text):
+        x = self.embedding(text)
+        x = x.transpose(2,1)
+        features = self.convnet(x)
+        features_pooled = self.pooling(features).squeeze()
+        return self.fc(features_pooled)

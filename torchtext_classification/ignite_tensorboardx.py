@@ -36,8 +36,9 @@ from torch.utils.data.dataset import random_split
 from tqdm import tqdm
 from util import data_io
 
-from data_processing import NgramsDataset, parse_csv_to_examples_build_fields
-from text_clf_models import EmbeddingBagClfModel
+from data_processing import NgramsDataset, parse_csv_to_examples_build_fields, \
+    PaddedTextClfDataset
+from text_clf_models import EmbeddingBagClfModel, ConvNNClassifier
 
 LOG_INTERVAL = 10
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -153,9 +154,11 @@ def setup_tensorboard(
 def run(params: TrainParams):
     # train_dataset, test_dataset = get_datasets("AG_NEWS", ".data", 2)
     train_examples, test_examples, fields = parse_csv_to_examples_build_fields()
-    ngrams = 1
-    train_dataset = NgramsDataset(train_examples, fields, ngrams=ngrams)
-    test_dataset = NgramsDataset(test_examples, fields, ngrams=ngrams)
+    # ngrams = 1
+    # train_dataset = NgramsDataset(train_examples, fields, ngrams=ngrams)
+    # test_dataset = NgramsDataset(test_examples, fields, ngrams=ngrams)
+    train_dataset = PaddedTextClfDataset(train_examples, fields)
+    test_dataset = PaddedTextClfDataset(test_examples, fields)
 
     vocab_size = len(train_dataset.get_vocab())
     num_class = len(train_dataset.get_labels())
@@ -163,7 +166,8 @@ def run(params: TrainParams):
     train_loader, val_loader = get_data_loaders(
         train_dataset.collate_fn, train_dataset, params
     )
-    model = EmbeddingBagClfModel(vocab_size, 32, num_class)
+    # model = EmbeddingBagClfModel(vocab_size, 32, num_class)
+    model = ConvNNClassifier(vocab_size, 32, num_class,32)
 
     optimizer = Adam(model.parameters(), lr=params.lr)
     criterion = nn.CrossEntropyLoss()

@@ -102,6 +102,6 @@ def parse_csv_to_examples_build_fields(
 
 class PaddedTextClfDataset(TextClfDataset):
     def collate_fn(self, raw_batch: List):
-        batch, lenghts = self.fields["text"].process([e.text for e in raw_batch])
+        batch = self.fields["text"].process([e.text for e in raw_batch])
         batch_targets = self.fields["label"].process([e.label for e in raw_batch])
-        return (batch, lenghts), batch_targets
+        return batch, batch_targets
