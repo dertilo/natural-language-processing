@@ -18,9 +18,10 @@
     ```
 """
 import os
+import re
 import sys
 import logging
-from typing import NamedTuple
+from typing import NamedTuple, List
 
 import torch
 from ignite.contrib.handlers import ProgressBar
@@ -29,12 +30,15 @@ from torch.utils.data import DataLoader
 from torch import nn
 import torch.nn.functional as F
 from torch.optim import SGD
-from torchtext.datasets import text_classification
+from torchtext.data import Field, Example, Dataset
+from torchtext.datasets import text_classification, TextClassificationDataset
 
 from ignite.engine import Events, create_supervised_trainer, create_supervised_evaluator
 from ignite.metrics import Accuracy, Loss, RunningAverage
 from ignite.contrib.handlers.tensorboard_logger import *
 from torch.utils.data.dataset import random_split
+from tqdm import tqdm
+from util import data_io
 
 from text_clf_models import EmbeddingBagClfModel
 
@@ -72,9 +76,61 @@ def get_datasets(dataset_Name, data, num_ngrams):
     return train_dataset, test_dataset
 
 
-def generate_seqconcat_batch(batch):  # TODO(tilo): for EmbeddingBag only!
-    label = torch.tensor([entry[0] for entry in batch])
-    text = [entry[1] for entry in batch]
+class TextClfDataset(Dataset):
+    def get_vocab(self):
+        return self.fields["text"].vocab
+
+    def get_labels(self):
+        return set(self.fields["label"].vocab.freqs.keys())
+
+    def __getitem__(self, i):
+        raw_datum: Example = super().__getitem__(i)
+        text = self.fields["text"].numericalize([raw_datum.text]).squeeze()
+        label = int(self.fields["label"].numericalize([raw_datum.label]))
+        return label, text
+
+
+def build_text_clf_datasets(
+    train_csv=".data/ag_news_csv/train.csv", test_csv=".data/ag_news_csv/test.csv"
+):
+    def regex_tokenizer(
+        text, pattern=r"(?u)\b\w\w+\b"
+    ) -> List[str]:  # pattern stolen from scikit-learn
+        return [m.group() for m in re.finditer(pattern, text)]
+
+    def parse_line(line):
+        splits = line.split(",")
+        text = " ".join(splits[1:])
+        label = splits[0]
+        return text, label
+
+    text_field = Field(
+        include_lengths=False, batch_first=True, tokenize=regex_tokenizer
+    )
+    label_field = Field(batch_first=True, sequential=False,unk_token=None)
+    fields = [("text", text_field), ("label", label_field)]
+
+    text_label_data = (parse_line(l) for l in tqdm(data_io.read_lines(train_csv)))
+    examples = [
+        Example.fromlist([text, label], fields) for text, label in text_label_data
+    ]
+
+    text_field.build_vocab([example.text for example in examples])
+    label_field.build_vocab([example.label for example in examples])
+
+    train_dataset = TextClfDataset(examples, fields)
+
+    text_label_data = (parse_line(l) for l in tqdm(data_io.read_lines(test_csv)))
+    examples = [
+        Example.fromlist([text, label], fields) for text, label in text_label_data
+    ]
+    test_dataset = TextClfDataset(examples, fields)
+    return train_dataset, test_dataset
+
+
+def generate_seqconcat_batch(raw_batch: List):  # TODO(tilo): for EmbeddingBag only!
+    label = torch.tensor([entry[0] for entry in raw_batch])
+    text = [entry[1] for entry in raw_batch]
     offsets = [0] + [len(entry) for entry in text]
     offsets = torch.tensor(offsets[:-1]).cumsum(dim=0)
     text = torch.cat(text)
@@ -120,7 +176,8 @@ def gpuinfo_metrics(trainer):
 
 
 def run(params: TrainParams):
-    train_dataset, test_dataset = get_datasets("AG_NEWS", ".data", 2)
+    # train_dataset, test_dataset = get_datasets("AG_NEWS", ".data", 2)
+    train_dataset, test_dataset = build_text_clf_datasets()
     vocab_size = len(train_dataset.get_vocab())
     num_class = len(train_dataset.get_labels())
 
@@ -145,11 +202,13 @@ def run(params: TrainParams):
         train_evaluator.run(train_loader)
         validation_evaluator.run(val_loader)
 
-    RunningAverage(output_transform=lambda x: x,alpha=0.99).attach(trainer, "loss")
+    RunningAverage(output_transform=lambda x: x, alpha=0.99).attach(trainer, "loss")
     pbar = ProgressBar(persist=True)
     pbar.attach(trainer, metric_names=["loss"])
 
-    RunningAverage(src=metrics['accuracy'],alpha=0.99).attach(validation_evaluator, "running-acc")
+    RunningAverage(src=metrics["accuracy"], alpha=0.99).attach(
+        validation_evaluator, "running-acc"
+    )
     pbar_eval = ProgressBar(persist=True)
     pbar_eval.attach(validation_evaluator, metric_names=["running-acc"])
 
@@ -224,4 +283,4 @@ if __name__ == "__main__":
     logger.addHandler(handler)
     logger.setLevel(logging.WARNING)
 
-    run(TrainParams(0.01, 0.8,num_epochs=1))
+    run(TrainParams(0.01, 0.8, num_epochs=1))
