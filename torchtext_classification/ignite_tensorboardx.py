@@ -17,7 +17,6 @@
     python mnist_with_tensorboard_logger.py --log_dir=/tmp/tensorboard_logs
     ```
 """
-import os
 import re
 import sys
 import logging
@@ -28,10 +27,7 @@ from ignite.contrib.handlers import ProgressBar
 from torch.optim.adam import Adam
 from torch.utils.data import DataLoader
 from torch import nn
-import torch.nn.functional as F
-from torchtext.data import Field, Example, Dataset
-from torchtext.data.utils import ngrams_iterator
-from torchtext.datasets import text_classification, TextClassificationDataset
+from torchtext.data import Field, Example
 
 from ignite.engine import Events, create_supervised_trainer, create_supervised_evaluator
 from ignite.metrics import Accuracy, Loss, RunningAverage
@@ -40,6 +36,7 @@ from torch.utils.data.dataset import random_split
 from tqdm import tqdm
 from util import data_io
 
+from data_processing import NgramsDataset, parse_csv_to_examples_build_fields
 from text_clf_models import EmbeddingBagClfModel
 
 LOG_INTERVAL = 10
@@ -57,91 +54,7 @@ class TrainParams(NamedTuple):
     log_dir: str = "tensorboard_logs"
 
 
-def get_datasets(dataset_Name, data, num_ngrams):
-    assert dataset_Name in text_classification.DATASETS
-    train_data_file = os.path.join(data, "train_dataset.pt")
-    test_data_file = os.path.join(data, "test_dataset.pt")
-    if not os.path.isfile(train_data_file):
-        print("creating datasets")
-        train_dataset, test_dataset = text_classification.DATASETS[dataset_Name](
-            root=data, ngrams=num_ngrams
-        )
-        torch.save(train_dataset, train_data_file)
-        torch.save(test_dataset, test_data_file)
-    else:
-        print("loading preprocessed datasets")
-        train_dataset = torch.load(train_data_file)
-        test_dataset = torch.load(test_data_file)
-
-    return train_dataset, test_dataset
-
-
-class TextClfDataset(Dataset):
-    def __init__(self, examples, fields, filter_pred=None, ngrams=1):
-        super().__init__(examples, fields, filter_pred)
-        self.ngrams = ngrams
-
-    def get_vocab(self):
-        return self.fields["text"].vocab
-
-    def get_labels(self):
-        return set(self.fields["label"].vocab.freqs.keys())
-
-    def __getitem__(self, i):
-        raw_datum: Example = super().__getitem__(i)
-        tokens = raw_datum.text
-        ngrams = list(ngrams_iterator(tokens, self.ngrams))
-        text = self.fields["text"].numericalize([ngrams]).squeeze()
-        label = int(self.fields["label"].numericalize([raw_datum.label]))
-        return label, text
-
-
-def build_text_clf_datasets(
-    train_csv=".data/ag_news_csv/train.csv",
-    test_csv=".data/ag_news_csv/test.csv",
-    ngrams=2,
-):
-    def regex_tokenizer(
-        text, pattern=r"(?u)\b\w\w+\b"
-    ) -> List[str]:  # pattern stolen from scikit-learn
-        return [m.group() for m in re.finditer(pattern, text)]
-
-    def parse_line(line):
-        splits = line.split(",")
-        text = " ".join(splits[1:])
-        label = splits[0]
-        return text, label
-
-    text_field = Field(
-        include_lengths=False, batch_first=True, tokenize=regex_tokenizer
-    )
-    label_field = Field(batch_first=True, sequential=False, unk_token=None)
-    fields = [("text", text_field), ("label", label_field)]
-
-    g = (parse_line(l) for l in tqdm(data_io.read_lines(train_csv)))
-    examples = [Example.fromlist([text, label], fields) for text, label in g]
-
-    text_field.build_vocab([example.text for example in examples])
-    label_field.build_vocab([example.label for example in examples])
-
-    train_dataset = TextClfDataset(examples, fields, ngrams=ngrams)
-
-    g = (parse_line(l) for l in tqdm(data_io.read_lines(test_csv)))
-    examples = [Example.fromlist([text, label], fields) for text, label in g]
-    test_dataset = TextClfDataset(examples, fields, ngrams=ngrams)
-    return train_dataset, test_dataset
-
-
-def generate_seqconcat_batch(raw_batch: List):  # TODO(tilo): for EmbeddingBag only!
-    label = torch.tensor([entry[0] for entry in raw_batch])
-    text = [entry[1] for entry in raw_batch]
-    offsets = [0] + [len(entry) for entry in text]
-    offsets = torch.tensor(offsets[:-1]).cumsum(dim=0)
-    text = torch.cat(text)
-    return (text, offsets), label
-
-
-def get_data_loaders(train_dataset, params: TrainParams):
+def get_data_loaders(collate_fn, train_dataset, params: TrainParams):
 
     train_len = int(len(train_dataset) * 0.95)
     sub_train_, sub_valid_ = random_split(
@@ -152,14 +65,12 @@ def get_data_loaders(train_dataset, params: TrainParams):
         sub_train_,
         batch_size=params.batch_size,
         shuffle=True,
-        collate_fn=generate_seqconcat_batch,
+        collate_fn=collate_fn,
         num_workers=params.num_workers,
     )
 
     val_loader = DataLoader(
-        sub_valid_,
-        batch_size=params.eval_batch_size,
-        collate_fn=generate_seqconcat_batch,
+        sub_valid_, batch_size=params.eval_batch_size, collate_fn=collate_fn,
     )
 
     return train_loader, val_loader
@@ -241,11 +152,17 @@ def setup_tensorboard(
 
 def run(params: TrainParams):
     # train_dataset, test_dataset = get_datasets("AG_NEWS", ".data", 2)
-    train_dataset, test_dataset = build_text_clf_datasets(ngrams=1)
+    train_examples, test_examples, fields = parse_csv_to_examples_build_fields()
+    ngrams = 1
+    train_dataset = NgramsDataset(train_examples, fields, ngrams=ngrams)
+    test_dataset = NgramsDataset(test_examples, fields, ngrams=ngrams)
+
     vocab_size = len(train_dataset.get_vocab())
     num_class = len(train_dataset.get_labels())
 
-    train_loader, val_loader = get_data_loaders(train_dataset, params)
+    train_loader, val_loader = get_data_loaders(
+        train_dataset.collate_fn, train_dataset, params
+    )
     model = EmbeddingBagClfModel(vocab_size, 32, num_class)
 
     optimizer = Adam(model.parameters(), lr=params.lr)
@@ -280,7 +197,6 @@ def run(params: TrainParams):
         model, optimizer, params, train_evaluator, trainer, validation_evaluator
     )
 
-    # kick everything off
     trainer.run(train_loader, max_epochs=params.num_epochs)
     tb_logger.close()
 
