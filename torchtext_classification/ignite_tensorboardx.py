@@ -179,6 +179,66 @@ def gpuinfo_metrics(trainer):
             )
 
 
+def setup_tensorboard(
+    model,
+    optimizer,
+    params: TrainParams,
+    train_evaluator,
+    trainer,
+    validation_evaluator,
+):
+    tb_logger = TensorboardLogger(log_dir=params.log_dir)
+    tb_logger.attach(
+        trainer,
+        log_handler=OutputHandler(
+            tag="training",
+            output_transform=lambda loss: {"batchloss": loss},
+            metric_names="all",
+        ),
+        event_name=Events.ITERATION_COMPLETED(every=100),
+    )
+    tb_logger.attach(
+        train_evaluator,
+        log_handler=OutputHandler(
+            tag="training", metric_names=["loss", "accuracy"], another_engine=trainer
+        ),
+        event_name=Events.EPOCH_COMPLETED,
+    )
+    tb_logger.attach(
+        validation_evaluator,
+        log_handler=OutputHandler(
+            tag="validation", metric_names=["loss", "accuracy"], another_engine=trainer
+        ),
+        event_name=Events.EPOCH_COMPLETED,
+    )
+    tb_logger.attach(
+        trainer,
+        log_handler=OptimizerParamsHandler(optimizer),
+        event_name=Events.ITERATION_COMPLETED(every=100),
+    )
+    tb_logger.attach(
+        trainer,
+        log_handler=WeightsScalarHandler(model),
+        event_name=Events.ITERATION_COMPLETED(every=100),
+    )
+    tb_logger.attach(
+        trainer,
+        log_handler=WeightsHistHandler(model),
+        event_name=Events.EPOCH_COMPLETED(every=100),
+    )
+    tb_logger.attach(
+        trainer,
+        log_handler=GradsScalarHandler(model),
+        event_name=Events.ITERATION_COMPLETED(every=100),
+    )
+    tb_logger.attach(
+        trainer,
+        log_handler=GradsHistHandler(model),
+        event_name=Events.EPOCH_COMPLETED(every=100),
+    )
+    return tb_logger
+
+
 def run(params: TrainParams):
     # train_dataset, test_dataset = get_datasets("AG_NEWS", ".data", 2)
     train_dataset, test_dataset = build_text_clf_datasets(ngrams=1)
@@ -216,62 +276,8 @@ def run(params: TrainParams):
     pbar_eval = ProgressBar(persist=True)
     pbar_eval.attach(validation_evaluator, metric_names=["running-acc"])
 
-    tb_logger = TensorboardLogger(log_dir=params.log_dir)
-
-    tb_logger.attach(
-        trainer,
-        log_handler=OutputHandler(
-            tag="training",
-            output_transform=lambda loss: {"batchloss": loss},
-            metric_names="all",
-        ),
-        event_name=Events.ITERATION_COMPLETED(every=100),
-    )
-
-    tb_logger.attach(
-        train_evaluator,
-        log_handler=OutputHandler(
-            tag="training", metric_names=["loss", "accuracy"], another_engine=trainer
-        ),
-        event_name=Events.EPOCH_COMPLETED,
-    )
-
-    tb_logger.attach(
-        validation_evaluator,
-        log_handler=OutputHandler(
-            tag="validation", metric_names=["loss", "accuracy"], another_engine=trainer
-        ),
-        event_name=Events.EPOCH_COMPLETED,
-    )
-
-    tb_logger.attach(
-        trainer,
-        log_handler=OptimizerParamsHandler(optimizer),
-        event_name=Events.ITERATION_COMPLETED(every=100),
-    )
-
-    tb_logger.attach(
-        trainer,
-        log_handler=WeightsScalarHandler(model),
-        event_name=Events.ITERATION_COMPLETED(every=100),
-    )
-
-    tb_logger.attach(
-        trainer,
-        log_handler=WeightsHistHandler(model),
-        event_name=Events.EPOCH_COMPLETED(every=100),
-    )
-
-    tb_logger.attach(
-        trainer,
-        log_handler=GradsScalarHandler(model),
-        event_name=Events.ITERATION_COMPLETED(every=100),
-    )
-
-    tb_logger.attach(
-        trainer,
-        log_handler=GradsHistHandler(model),
-        event_name=Events.EPOCH_COMPLETED(every=100),
+    tb_logger = setup_tensorboard(
+        model, optimizer, params, train_evaluator, trainer, validation_evaluator
     )
 
     # kick everything off
