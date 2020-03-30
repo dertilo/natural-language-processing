@@ -29,8 +29,8 @@ from torch.optim.adam import Adam
 from torch.utils.data import DataLoader
 from torch import nn
 import torch.nn.functional as F
-from torch.optim import SGD
 from torchtext.data import Field, Example, Dataset
+from torchtext.data.utils import ngrams_iterator
 from torchtext.datasets import text_classification, TextClassificationDataset
 
 from ignite.engine import Events, create_supervised_trainer, create_supervised_evaluator
@@ -77,6 +77,10 @@ def get_datasets(dataset_Name, data, num_ngrams):
 
 
 class TextClfDataset(Dataset):
+    def __init__(self, examples, fields, filter_pred=None, ngrams=1):
+        super().__init__(examples, fields, filter_pred)
+        self.ngrams = ngrams
+
     def get_vocab(self):
         return self.fields["text"].vocab
 
@@ -85,13 +89,17 @@ class TextClfDataset(Dataset):
 
     def __getitem__(self, i):
         raw_datum: Example = super().__getitem__(i)
-        text = self.fields["text"].numericalize([raw_datum.text]).squeeze()
+        tokens = raw_datum.text
+        ngrams = list(ngrams_iterator(tokens, self.ngrams))
+        text = self.fields["text"].numericalize([ngrams]).squeeze()
         label = int(self.fields["label"].numericalize([raw_datum.label]))
         return label, text
 
 
 def build_text_clf_datasets(
-    train_csv=".data/ag_news_csv/train.csv", test_csv=".data/ag_news_csv/test.csv"
+    train_csv=".data/ag_news_csv/train.csv",
+    test_csv=".data/ag_news_csv/test.csv",
+    ngrams=2,
 ):
     def regex_tokenizer(
         text, pattern=r"(?u)\b\w\w+\b"
@@ -107,24 +115,20 @@ def build_text_clf_datasets(
     text_field = Field(
         include_lengths=False, batch_first=True, tokenize=regex_tokenizer
     )
-    label_field = Field(batch_first=True, sequential=False,unk_token=None)
+    label_field = Field(batch_first=True, sequential=False, unk_token=None)
     fields = [("text", text_field), ("label", label_field)]
 
-    text_label_data = (parse_line(l) for l in tqdm(data_io.read_lines(train_csv)))
-    examples = [
-        Example.fromlist([text, label], fields) for text, label in text_label_data
-    ]
+    g = (parse_line(l) for l in tqdm(data_io.read_lines(train_csv)))
+    examples = [Example.fromlist([text, label], fields) for text, label in g]
 
     text_field.build_vocab([example.text for example in examples])
     label_field.build_vocab([example.label for example in examples])
 
-    train_dataset = TextClfDataset(examples, fields)
+    train_dataset = TextClfDataset(examples, fields, ngrams=ngrams)
 
-    text_label_data = (parse_line(l) for l in tqdm(data_io.read_lines(test_csv)))
-    examples = [
-        Example.fromlist([text, label], fields) for text, label in text_label_data
-    ]
-    test_dataset = TextClfDataset(examples, fields)
+    g = (parse_line(l) for l in tqdm(data_io.read_lines(test_csv)))
+    examples = [Example.fromlist([text, label], fields) for text, label in g]
+    test_dataset = TextClfDataset(examples, fields, ngrams=ngrams)
     return train_dataset, test_dataset
 
 
@@ -177,7 +181,7 @@ def gpuinfo_metrics(trainer):
 
 def run(params: TrainParams):
     # train_dataset, test_dataset = get_datasets("AG_NEWS", ".data", 2)
-    train_dataset, test_dataset = build_text_clf_datasets()
+    train_dataset, test_dataset = build_text_clf_datasets(ngrams=1)
     vocab_size = len(train_dataset.get_vocab())
     num_class = len(train_dataset.get_labels())
 
