@@ -1,0 +1,4 @@
+torch
+pytorch-ignite
+torchtext
+util@git+https://github.com/dertilo/util.git#egg=util
