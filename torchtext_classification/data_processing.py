@@ -69,9 +69,18 @@ class NgramsDataset(TextClfDataset):
         return build_seqconcat_batch(raw_batch)
 
 
-def parse_csv_to_examples_build_fields(
-    train_csv=".data/ag_news_csv/train.csv", test_csv=".data/ag_news_csv/test.csv",
-):
+DATA_PATH = ".data"
+os.makedirs(DATA_PATH,exist_ok=True)
+
+def parse_csv_to_examples_build_fields(dataset_name="AG_NEWS"):
+    csv_path = DATA_PATH + "/" + dataset_name.lower() + "_csv"
+    if not os.path.isdir(csv_path):
+        # download data
+        _, _ = text_classification.DATASETS[dataset_name](root=DATA_PATH)
+
+    train_csv = csv_path + "/train.csv"
+    test_csv = csv_path + "/test.csv"
+
     def regex_tokenizer(
         text, pattern=r"(?u)\b\w\w+\b"
     ) -> List[str]:  # pattern stolen from scikit-learn

@@ -1,22 +1,4 @@
-"""
- MNIST example with training and validation monitoring using TensorboardX and Tensorboard.
-
- Requirements:
-    Optionally TensorboardX (https://github.com/lanpa/tensorboard-pytorch): `pip install tensorboardX`
-    Tensorboard: `pip install tensorflow` (or just install tensorboard without the rest of tensorflow)
-
- Usage:
-
-    Start tensorboard:
-    ```bash
-    tensorboard --logdir=/tmp/tensorboard_logs/
-    ```
-
-    Run the example:
-    ```bash
-    python mnist_with_tensorboard_logger.py --log_dir=/tmp/tensorboard_logs
-    ```
-"""
+import os
 import re
 import sys
 import logging
@@ -27,14 +9,11 @@ from ignite.contrib.handlers import ProgressBar
 from torch.optim.adam import Adam
 from torch.utils.data import DataLoader
 from torch import nn
-from torchtext.data import Field, Example
 
 from ignite.engine import Events, create_supervised_trainer, create_supervised_evaluator
 from ignite.metrics import Accuracy, Loss, RunningAverage
 from ignite.contrib.handlers.tensorboard_logger import *
 from torch.utils.data.dataset import random_split
-from tqdm import tqdm
-from util import data_io
 
 from data_processing import NgramsDataset, parse_csv_to_examples_build_fields, \
     PaddedTextClfDataset
@@ -136,7 +115,7 @@ def setup_tensorboard(
     tb_logger.attach(
         trainer,
         log_handler=WeightsHistHandler(model),
-        event_name=Events.EPOCH_COMPLETED(every=100),
+        event_name=Events.EPOCH_COMPLETED(every=1),
     )
     tb_logger.attach(
         trainer,
@@ -146,7 +125,7 @@ def setup_tensorboard(
     tb_logger.attach(
         trainer,
         log_handler=GradsHistHandler(model),
-        event_name=Events.EPOCH_COMPLETED(every=100),
+        event_name=Events.EPOCH_COMPLETED(every=1),
     )
     return tb_logger
 
@@ -168,6 +147,7 @@ def run(params: TrainParams):
     )
     # model = EmbeddingBagClfModel(vocab_size, 32, num_class)
     model = ConvNNClassifier(vocab_size, 32, num_class,32)
+    print(model)
 
     optimizer = Adam(model.parameters(), lr=params.lr)
     criterion = nn.CrossEntropyLoss()
@@ -213,4 +193,4 @@ if __name__ == "__main__":
     logger.addHandler(handler)
     logger.setLevel(logging.WARNING)
 
-    run(TrainParams(0.01, 0.8, num_epochs=1))
+    run(TrainParams(0.01, 0.8, num_epochs=2,log_dir='tensorboard_logs/convNN'))
