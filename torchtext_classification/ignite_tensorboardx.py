@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import sys
 import logging
 from typing import NamedTuple, List
@@ -78,7 +79,10 @@ def setup_tensorboard(
     trainer,
     validation_evaluator,
 ):
-    tb_logger = TensorboardLogger(log_dir=params.log_dir)
+    log_dir = params.log_dir
+    if os.path.isdir(log_dir):
+        shutil.rmtree(log_dir)
+    tb_logger = TensorboardLogger(log_dir=log_dir)
     tb_logger.attach(
         trainer,
         log_handler=OutputHandler(
