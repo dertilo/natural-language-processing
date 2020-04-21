@@ -288,7 +288,6 @@ class BERTClassifier(pl.LightningModule):
         """ Retrieves task specific dataset """
         return sentiment_analysis_dataset(self.hparams, train, val, test)
 
-    @pl.data_loader
     def train_dataloader(self) -> DataLoader:
         """ Function that loads the train set. """
         self._train_dataset = self.__retrieve_dataset(val=False, test=False)[0]
@@ -300,7 +299,6 @@ class BERTClassifier(pl.LightningModule):
             num_workers=self.hparams.loader_workers,
         )
 
-    @pl.data_loader
     def val_dataloader(self) -> DataLoader:
         """ Function that loads the validation set. """
         self._dev_dataset = self.__retrieve_dataset(train=False, test=False)[0]
