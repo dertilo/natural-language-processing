@@ -8,9 +8,9 @@ if __name__ == '__main__':
     # # Initialize a tokenizer
     tokenizer = ByteLevelBPETokenizer()
 
-    # HOME = os.environ['HOME']
-    # data_file = HOME + '/data/wikitext-2-raw/wiki.train.raw'
-    data_file ='/tmp/wikitext-2-raw/wiki.train.raw'
+    HOME = os.environ['HOME']
+    data_file = HOME + '/data/wikitext-103-raw/wiki.train.raw'
+    # data_file ='/tmp/wikitext-2-raw/wiki.train.raw'
     tokenizer.train(files=[data_file], vocab_size=20_000, min_frequency=2, special_tokens=[
         "<s>",
         "<pad>",

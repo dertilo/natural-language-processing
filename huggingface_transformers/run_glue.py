@@ -310,9 +310,10 @@ def evaluate(args, model, tokenizer, prefix=""):
     )
 
     results = {}
+    processor = processors[args.task_name]()
     for eval_task, eval_output_dir in zip(eval_task_names, eval_outputs_dirs):
         eval_dataset = load_and_cache_examples(
-            args, eval_task, tokenizer, evaluate=True
+            processor,args, eval_task, tokenizer, evaluate=True
         )
 
         if not os.path.exists(eval_output_dir) and args.local_rank in [-1, 0]:
@@ -383,11 +384,10 @@ def evaluate(args, model, tokenizer, prefix=""):
     return results
 
 
-def load_and_cache_examples(args, task, tokenizer, evaluate=False):
+def load_and_cache_examples(processor, args, task, tokenizer, evaluate=False):
     if args.local_rank not in [-1, 0] and not evaluate:
         torch.distributed.barrier()  # Make sure only the first process in distributed training process the dataset, and the others will use the cache
 
-    processor = processors[task]()
     output_mode = output_modes[task]
     # Load data features from cache or dataset file
     cached_features_file = os.path.join(
@@ -491,7 +491,6 @@ def main(params=None):
         args.n_gpu = 1
     args.device = device
 
-    # Setup logging
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
@@ -506,7 +505,6 @@ def main(params=None):
         args.fp16,
     )
 
-    # Set seed
     set_seed(args)
 
     # Prepare GLUE task
@@ -522,22 +520,7 @@ def main(params=None):
     if args.local_rank not in [-1, 0]:
         torch.distributed.barrier()  # Make sure only the first process in distributed training will download model & vocab
 
-    args.model_type = args.model_type.lower()
-    config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
-    config = config_class.from_pretrained(
-        args.config_name if args.config_name else args.model_name_or_path,
-        num_labels=num_labels,
-        finetuning_task=args.task_name,
-    )
-    tokenizer = tokenizer_class.from_pretrained(
-        args.tokenizer_name if args.tokenizer_name else args.model_name_or_path,
-        do_lower_case=args.do_lower_case,
-    )
-    model = model_class.from_pretrained(
-        args.model_name_or_path,
-        from_tf=bool(".ckpt" in args.model_name_or_path),
-        config=config,
-    )
+    model, model_class, tokenizer, tokenizer_class = load_transformer(args, num_labels)
 
     if args.local_rank == 0:
         torch.distributed.barrier()  # Make sure only the first process in distributed training will download model & vocab
@@ -549,7 +532,7 @@ def main(params=None):
     # Training
     if args.do_train:
         train_dataset = load_and_cache_examples(
-            args, args.task_name, tokenizer, evaluate=False
+            processor,args, args.task_name, tokenizer, evaluate=False
         )
         global_step, tr_loss = train(args, train_dataset, model, tokenizer)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
@@ -610,6 +593,26 @@ def main(params=None):
             results.update(result)
 
     return results
+
+
+def load_transformer(args, num_labels):
+    args.model_type = args.model_type.lower()
+    config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
+    config = config_class.from_pretrained(
+        args.config_name if args.config_name else args.model_name_or_path,
+        num_labels=num_labels,
+        finetuning_task=args.task_name,
+    )
+    tokenizer = tokenizer_class.from_pretrained(
+        args.tokenizer_name if args.tokenizer_name else args.model_name_or_path,
+        do_lower_case=args.do_lower_case,
+    )
+    model = model_class.from_pretrained(
+        args.model_name_or_path,
+        from_tf=bool(".ckpt" in args.model_name_or_path),
+        config=config,
+    )
+    return model, model_class, tokenizer, tokenizer_class
 
 
 def parse_args():
@@ -813,7 +816,7 @@ if __name__ == "__main__":
         "max_seq_length": 128,
         "do_train": True,
         "do_eval": True,
-        "evaluate_during_training": False,
+        "evaluate_during_training": True,
         "do_lower_case": True,
         "per_gpu_train_batch_size": 8,
         "per_gpu_eval_batch_size": 8,
@@ -823,9 +826,9 @@ if __name__ == "__main__":
         "adam_epsilon": 1e-08,
         "max_grad_norm": 1.0,
         "num_train_epochs": 3.0,
-        "max_steps": 3,
+        "max_steps": 1000_000,
         "warmup_steps": 0,
-        "logging_steps": 50,
+        "logging_steps": 1000,
         "save_steps": 1000,
         "eval_all_checkpoints": False,
         "no_cuda": False,
