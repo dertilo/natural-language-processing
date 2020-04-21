@@ -17,10 +17,6 @@
 ### GLUE
 * [MNLI-kaggle](https://inclass.kaggle.com/c/multinli-matched-open-evaluation/data); [MNLI](https://www.nyu.edu/projects/bowman/multinli/)
 
-### [SQUAD 2.0](https://rajpurkar.github.io/SQuAD-explorer)
-
-* [huggingface](https://huggingface.co/transformers/examples.html#squad)
-
 ## Elasticsearch
 * [bertsearch](https://github.com/Hironsan/bertsearch)
 
@@ -50,6 +46,7 @@
 * paper: `Natural Questions: a Benchmark for Question Answering Research` by `Tom Kwiatkowski`
 
 ### [SQUAD 2.0](https://rajpurkar.github.io/SQuAD-explorer/)
+* [huggingface](https://huggingface.co/transformers/examples.html#squad)
 * Extractive reading comprehension
 * SQuAD 2.0 combines existing SQuAD data with over 50,000 unanswerable questions 
 * system must learn to determine when no answer is supported by the paragraph and abstain from answering.
