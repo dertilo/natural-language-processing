@@ -6,7 +6,7 @@ import torch
 from pytorch_lightning.logging import TestTubeLogger
 
 
-def setup_testube_logger() -> TestTubeLogger:
+def setup_testube_logger(save_dir) -> TestTubeLogger:
     """ Function that sets the TestTubeLogger to be used. """
     try:
         job_id = os.environ["SLURM_JOB_ID"]
@@ -16,7 +16,7 @@ def setup_testube_logger() -> TestTubeLogger:
     now = datetime.now()
     dt_string = now.strftime("%d-%m-%Y--%H-%M-%S")
     return TestTubeLogger(
-        save_dir="experiments/",
+        save_dir=save_dir,
         version=job_id + "_" + dt_string if job_id else dt_string,
         name="lightning_logs",
     )

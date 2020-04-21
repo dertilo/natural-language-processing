@@ -35,11 +35,12 @@ def main(hparams) -> None:
     # ------------------------
     # 3 INIT TRAINER
     # ------------------------
+    save_dir = os.environ['HOME'] + "/data/lightning_experiments/"
     trainer = Trainer(
-        logger=setup_testube_logger(),
+        logger=setup_testube_logger(save_dir),
         checkpoint_callback=True,
         early_stop_callback=early_stop_callback,
-        default_save_path=os.environ['HOME']+"/data/lightning_experiments/",
+        default_save_path=save_dir,
         gpus=hparams.gpus,
         distributed_backend="ddp",
         use_amp=True,
