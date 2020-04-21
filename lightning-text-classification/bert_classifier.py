@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging as log
 from collections import OrderedDict
+from functools import partial
 
 import numpy as np
 import torch
@@ -101,8 +102,9 @@ class BERTClassifier(pl.LightningModule):
             self.eval()
 
         with torch.no_grad():
-            model_input, _ = prepare_sample(self.tokenizer, self.label_encoder,
-                                            [sample], prepare_target=False)
+            model_input, _ = prepare_sample(
+                [sample], self.tokenizer, self.label_encoder, prepare_target=False
+            )
             model_out = self.forward(**model_input)
             logits = model_out["logits"].numpy()
             predicted_labels = [
@@ -272,7 +274,11 @@ class BERTClassifier(pl.LightningModule):
             dataset=self._train_dataset,
             shuffle=True,
             batch_size=self.hparams.batch_size,
-            collate_fn=prepare_sample,
+            collate_fn=partial(
+                prepare_sample,
+                tokenizer=self.tokenizer,
+                label_encoder=self.label_encoder,
+            ),
             num_workers=self.hparams.loader_workers,
         )
 
@@ -282,7 +288,11 @@ class BERTClassifier(pl.LightningModule):
         return DataLoader(
             dataset=self._dev_dataset,
             batch_size=self.hparams.batch_size,
-            collate_fn=prepare_sample,
+            collate_fn=partial(
+                prepare_sample,
+                tokenizer=self.tokenizer,
+                label_encoder=self.label_encoder,
+            ),
             num_workers=self.hparams.loader_workers,
         )
 

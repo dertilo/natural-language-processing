@@ -47,8 +47,7 @@ def sentiment_analysis_dataset(
     return tuple(func_out)
 
 
-def prepare_sample(tokenizer, label_encoder, sample: list,
-                   prepare_target: bool = True) -> (dict, dict):
+def prepare_sample(sample: list,tokenizer, label_encoder,prepare_target: bool = True) -> (dict, dict):
     """
     Function that prepares a sample to input the model.
     :param sample: list of dictionaries.
