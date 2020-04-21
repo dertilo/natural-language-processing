@@ -6,15 +6,15 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch import optim
-from torch.utils.data import DataLoader, RandomSampler
+from torch.utils.data import DataLoader
 from transformers import AutoModel
 
 import pytorch_lightning as pl
 from bert_tokenizer import BERTTextEncoder
-from dataloader import sentiment_analysis_dataset
+from sentiment_data_processing import sentiment_analysis_dataset, prepare_sample
 from test_tube import HyperOptArgumentParser
 from torchnlp.encoders import LabelEncoder
-from torchnlp.utils import collate_tensors, lengths_to_mask
+from torchnlp.utils import lengths_to_mask
 from utils import mask_fill
 
 
@@ -101,7 +101,8 @@ class BERTClassifier(pl.LightningModule):
             self.eval()
 
         with torch.no_grad():
-            model_input, _ = self.prepare_sample([sample], prepare_target=False)
+            model_input, _ = prepare_sample(self.tokenizer, self.label_encoder,
+                                            [sample], prepare_target=False)
             model_out = self.forward(**model_input)
             logits = model_out["logits"].numpy()
             predicted_labels = [
@@ -150,30 +151,6 @@ class BERTClassifier(pl.LightningModule):
             torch.tensor with loss value.
         """
         return self._loss(predictions["logits"], targets["labels"])
-
-    def prepare_sample(self, sample: list, prepare_target: bool = True) -> (dict, dict):
-        """
-        Function that prepares a sample to input the model.
-        :param sample: list of dictionaries.
-        
-        Returns:
-            - dictionary with the expected model inputs.
-            - dictionary with the expected target labels.
-        """
-        sample = collate_tensors(sample)
-        tokens, lengths = self.tokenizer.batch_encode(sample["text"])
-
-        inputs = {"tokens": tokens, "lengths": lengths}
-
-        if not prepare_target:
-            return inputs, {}
-
-        # Prepare target:
-        try:
-            targets = {"labels": self.label_encoder.batch_encode(sample["label"])}
-            return inputs, targets
-        except RuntimeError:
-            raise Exception("Label encoder found an unknown label.")
 
     def training_step(self, batch: tuple, batch_nb: int, *args, **kwargs) -> dict:
         """ 
@@ -295,7 +272,7 @@ class BERTClassifier(pl.LightningModule):
             dataset=self._train_dataset,
             shuffle=True,
             batch_size=self.hparams.batch_size,
-            collate_fn=self.prepare_sample,
+            collate_fn=prepare_sample,
             num_workers=self.hparams.loader_workers,
         )
 
@@ -305,7 +282,7 @@ class BERTClassifier(pl.LightningModule):
         return DataLoader(
             dataset=self._dev_dataset,
             batch_size=self.hparams.batch_size,
-            collate_fn=self.prepare_sample,
+            collate_fn=prepare_sample,
             num_workers=self.hparams.loader_workers,
         )
 

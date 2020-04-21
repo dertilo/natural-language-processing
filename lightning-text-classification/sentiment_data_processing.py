@@ -3,9 +3,11 @@ import pandas as pd
 
 from test_tube import HyperOptArgumentParser
 from torchnlp.datasets.dataset import Dataset
+from torchnlp.utils import collate_tensors
+from typing import Dict, List
 
 
-def collate_lists(text: list, label: list) -> dict:
+def collate_lists(text: list, label: list) -> List[Dict]:
     """ Converts each line into a dictionary. """
     collated_dataset = []
     for i in range(len(text)):
@@ -43,3 +45,29 @@ def sentiment_analysis_dataset(
         func_out.append(load_dataset(hparams.test_csv))
 
     return tuple(func_out)
+
+
+def prepare_sample(tokenizer, label_encoder, sample: list,
+                   prepare_target: bool = True) -> (dict, dict):
+    """
+    Function that prepares a sample to input the model.
+    :param sample: list of dictionaries.
+
+    Returns:
+        - dictionary with the expected model inputs.
+        - dictionary with the expected target labels.
+    """
+    sample = collate_tensors(sample)
+    tokens, lengths = tokenizer.batch_encode(sample["text"])
+
+    inputs = {"tokens": tokens, "lengths": lengths}
+
+    if not prepare_target:
+        return inputs, {}
+
+    # Prepare target:
+    try:
+        targets = {"labels": label_encoder.batch_encode(sample["label"])}
+        return inputs, targets
+    except RuntimeError:
+        raise Exception("Label encoder found an unknown label.")
