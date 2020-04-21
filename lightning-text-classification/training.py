@@ -3,11 +3,11 @@ Runs a model on a single node across N-gpus.
 """
 import os
 
-from bert_classifier import BERTClassifier
+from .bert_classifier import BERTClassifier
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from test_tube import HyperOptArgumentParser
-from utils import setup_testube_logger
+from .utils import setup_testube_logger
 from torchnlp.random import set_seed
 
 
