@@ -267,10 +267,10 @@ class BERTClassifier(pl.LightningModule):
         """ Retrieves task specific dataset """
         return sentiment_analysis_dataset(self.hparams, train, val, test)
 
-    def _build_dataloader(self,dataset):
+    def _build_dataloader(self,dataset,do_shuffle=False):
         return DataLoader(
             dataset=dataset,
-            shuffle=True,
+            shuffle=do_shuffle,
             batch_size=self.hparams.batch_size,
             collate_fn=partial(
                 prepare_sample,
@@ -281,13 +281,11 @@ class BERTClassifier(pl.LightningModule):
         )
 
     def train_dataloader(self) -> DataLoader:
-        """ Function that loads the train set. """
         dataset = self.__retrieve_dataset(val=False, test=False)[0]
-        return self._build_dataloader(dataset)
+        return self._build_dataloader(dataset,True)
 
 
     def val_dataloader(self) -> DataLoader:
-        """ Function that loads the validation set. """
         dataset = self.__retrieve_dataset(train=False, test=False)[0]
         return self._build_dataloader(dataset)
 
