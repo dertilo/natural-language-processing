@@ -311,17 +311,6 @@ class BERTClassifier(pl.LightningModule):
             num_workers=self.hparams.loader_workers,
         )
 
-    @pl.data_loader
-    def test_dataloader(self) -> DataLoader:
-        """ Function that loads the validation set. """
-        self._test_dataset = self.__retrieve_dataset(train=False, val=False)[0]
-        return DataLoader(
-            dataset=self._test_dataset,
-            batch_size=self.hparams.batch_size,
-            collate_fn=self.prepare_sample,
-            num_workers=self.hparams.loader_workers,
-        )
-
     @classmethod
     def add_model_specific_args(
         cls, parser: HyperOptArgumentParser
@@ -373,12 +362,6 @@ class BERTClassifier(pl.LightningModule):
         )
         parser.add_argument(
             "--dev_csv",
-            default="data/imdb_reviews_test.csv",
-            type=str,
-            help="Path to the file containing the dev data.",
-        )
-        parser.add_argument(
-            "--test_csv",
             default="data/imdb_reviews_test.csv",
             type=str,
             help="Path to the file containing the dev data.",
