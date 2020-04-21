@@ -293,7 +293,7 @@ class BERTClassifier(pl.LightningModule):
         self._train_dataset = self.__retrieve_dataset(val=False, test=False)[0]
         return DataLoader(
             dataset=self._train_dataset,
-            sampler=RandomSampler(self._train_dataset),
+            shuffle=True,
             batch_size=self.hparams.batch_size,
             collate_fn=self.prepare_sample,
             num_workers=self.hparams.loader_workers,
