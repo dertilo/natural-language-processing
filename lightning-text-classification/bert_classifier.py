@@ -227,7 +227,7 @@ class BERTClassifier(pl.LightningModule):
         return self._build_dataloader(load_dataset(self.hparams.train_csv), True)
 
     def val_dataloader(self) -> DataLoader:
-        return self._build_dataloader(load_dataset(self.hparams.train_csv))
+        return self._build_dataloader(load_dataset(self.hparams.dev_csv))
 
     @classmethod
     def add_model_specific_args(
