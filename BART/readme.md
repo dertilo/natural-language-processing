@@ -1,5 +1,5 @@
 
-# BART 
+# BART - Summarization
 * [fairseq-BART](https://github.com/pytorch/fairseq/tree/master/examples/bart)
 
 ## huggingface 
@@ -18,3 +18,7 @@
 
 ### evaluation
 [rouge-calculation](https://github.com/pltrdy/rouge)
+
+# Seq2Seq Dialogue
+
+* coqa-data
