@@ -14,15 +14,36 @@ from BART.process_dialogue_data import build_input_target
 DEFAULT_DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def run_interaction(
-    model_name: str, device: str = DEFAULT_DEVICE
+def generate_answer(
+    SEP, background, device, max_length, min_length, model, tokenizer, utt
 ):
+    inputt, _ = build_input_target(background, [utt], ["None"], SEP)
+    batch = [" " + inputt]
+    dct = tokenizer.batch_encode_plus(batch, max_length=1024, return_tensors="pt")
+    encoded = model.generate(
+        input_ids=dct["input_ids"].to(device),
+        attention_mask=dct["attention_mask"].to(device),
+        num_beams=4,
+        length_penalty=2.0,
+        max_length=max_length + 2,
+        # +2 from original because we start at step=1 and stop before max_length
+        min_length=min_length + 1,  # +1 from original because we start at step=1
+        no_repeat_ngram_size=3,
+        early_stopping=True,
+        decoder_start_token_id=model.config.eos_token_id,
+    )[0]
+    answer = tokenizer.decode(
+        encoded, skip_special_tokens=True, clean_up_tokenization_spaces=False
+    )
+    return answer
 
-    assert model_name.endswith('.ckpt')
+
+def run_interaction(model_name: str, device: str = DEFAULT_DEVICE):
+
+    assert model_name.endswith(".ckpt")
     model = SummarizationTrainer.load_from_checkpoint(model_name).model.to(device)
     tokenizer = BartTokenizer.from_pretrained("bart-large")
     SEP = tokenizer.special_tokens_map["sep_token"]
-
 
     max_length = 140
     min_length = 10
@@ -34,32 +55,28 @@ def run_interaction(
 
     with ix.searcher() as s:
         while True:
-            utt = input(': ')
-            or_searche = ' OR '.join(utt.split(' '))
+            utt = input(": ")
+            or_searche = " OR ".join(utt.split(" "))
             q = qp.parse(or_searche)
-            print(q)
             results = s.search(q, limit=1)
-            background = results[0]['story']
-            inputt,_ = build_input_target(background,[utt],['None'],SEP)
-            batch = [" " + inputt]
-            dct = tokenizer.batch_encode_plus(batch, max_length=1024, return_tensors="pt", pad_to_max_length=True)
-            encoded = model.generate(
-                input_ids=dct["input_ids"].to(device),
-                attention_mask=dct["attention_mask"].to(device),
-                num_beams=4,
-                length_penalty=2.0,
-                max_length=max_length + 2,  # +2 from original because we start at step=1 and stop before max_length
-                min_length=min_length + 1,  # +1 from original because we start at step=1
-                no_repeat_ngram_size=3,
-                early_stopping=True,
-                decoder_start_token_id=model.config.eos_token_id,
-            )[0]
-            answer = tokenizer.decode(encoded, skip_special_tokens=True,
-                                      clean_up_tokenization_spaces=False)
+            if len(results) > 0:
+                background = results[0]["story"]
+                answer = generate_answer(
+                    SEP,
+                    background,
+                    device,
+                    max_length,
+                    min_length,
+                    model,
+                    tokenizer,
+                    utt,
+                )
+            else:
+                answer = "Whaat?"
             print(answer)
-            print()
 
-def build_index(data,schema,index_dir='indexdir'):
+
+def build_index(data, schema, index_dir="indexdir"):
 
     if not os.path.exists(index_dir):
         os.mkdir(index_dir)
@@ -75,23 +92,22 @@ def build_schema_and_corpus():
     schema = Schema(
         id=ID(stored=True),
         filename=ID(stored=True),
-        story=TEXT(analyzer=StemmingAnalyzer(), stored=True, lang='en'),
+        story=TEXT(analyzer=StemmingAnalyzer(), stored=True, lang="en"),
     )
     file = os.environ["HOME"] + "/data/QA/coqa/" + "coqa-train-v1.0.json"
-    data = ({'id': d['id'], 'filename': d['filename'], 'story': d['story']} for d in
-            data_io.read_json(
-                file
-            )["data"]
-            )
+    data = (
+        {"id": d["id"], "filename": d["filename"], "story": d["story"]}
+        for d in data_io.read_json(file)["data"]
+    )
     return schema, data
 
-INDEX_DIR= 'coqa_index'
+
+INDEX_DIR = "coqa_index"
 if not os.path.isdir(INDEX_DIR):
     schema, data = build_schema_and_corpus()
     build_index(data, schema, index_dir=INDEX_DIR)
 
 
-if __name__ == '__main__':
-    'When was the Vat library founded?'
-    model_file = '/home/tilo/data/bart_coqa_seq2seq/checkpointepoch=0.ckpt'
+if __name__ == "__main__":
+    model_file = os.environ["HOME"] + "/data/bart_coqa_seq2seq/checkpointepoch=0.ckpt"
     run_interaction(model_file)
