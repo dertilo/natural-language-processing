@@ -21,4 +21,7 @@
 
 # Seq2Seq Dialogue
 
-* coqa-data
+## setup
+1. add transformers-repo to PYTHONPATH
+2. pip install -r requirements.txt
+3. cd transformers && pip install -e .
