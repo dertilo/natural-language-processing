@@ -25,6 +25,19 @@
 * [SQUAD 2.0](https://rajpurkar.github.io/SQuAD-explorer/)
 * [persona-chat](https://github.com/DeepPavlov/convai)
     + https://gist.github.com/thomwolf/ecc52ea728d29c9724320b38619bd6a6
+* [quangaroo](http://qangaroo.cs.ucl.ac.uk/)
+    + how to use? concat documents??
+    
+#### number of seq2seq-examples    
+```
+personachat-train: 131437
+coqa-train: 108646
+squad20-train: 86820
+coqa-val: 7982
+squad20-val: 20301
+```
+    
+on hpc somehwen remove `~/bart_coqa_seq2seq`
 
 ## setup
 1. add transformers-repo to PYTHONPATH
