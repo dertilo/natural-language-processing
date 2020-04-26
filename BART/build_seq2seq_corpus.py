@@ -6,25 +6,39 @@ from typing import List
 from util import data_io
 
 
-def generate_coqa_seq2seq(file_name, SEP_TOKEN, hist_len=3):
+def generate_coqa_seq2seq(file_name, hist_len=3):
 
     data = data_io.read_json(os.environ["HOME"] + "/data/QA/coqa/" + file_name)["data"]
 
     def get_history(l: List, k, hist_len):
         return [d["input_text"] for d in l[max(0, k - hist_len) : (k + 1)]]
-
     for datum in data:
         dialogue_len = len(datum["questions"])
         for k in range(dialogue_len):
             q_hist = get_history(datum["questions"], k, hist_len)
             a_hist = get_history(datum["answers"], k, hist_len)
-            dialogue, target = build_input_target(
-                datum["story"], q_hist, a_hist, SEP_TOKEN
-            )
+            dialogue, target = build_input_target(datum["story"], q_hist, a_hist, SEP)
             yield dialogue, target
 
 
-def build_input_target(background, q_hist, a_hist, SEP_TOKEN):
+
+def generate_squad20_seq2seq(file_name):
+
+    data = data_io.read_json(os.environ["HOME"] + "/data/QA/SQUAD20/" + file_name)[
+        "data"
+    ]
+    for datum in data:
+        for p in datum['paragraphs']:
+            background = p['context']
+            for qa in p['qas']:
+                if not qa['is_impossible']:
+                    q = qa['question']
+                    for a in qa['answers']:
+                        dialogue, target = build_input_target(background, [q], [a['text']], SEP)
+                        yield dialogue, target
+
+
+def build_input_target(background, q_hist:List[str], a_hist:List[str], SEP_TOKEN):
     def process(s):
         return s.replace("\n", "")
 
@@ -34,13 +48,20 @@ def build_input_target(background, q_hist, a_hist, SEP_TOKEN):
     return dialogue, target
 
 
+tokenizer = BartTokenizer.from_pretrained("bart-large")
+# BOS = tokenizer.special_tokens_map['bos_token']
+SEP = tokenizer.special_tokens_map["sep_token"]
+
 if __name__ == "__main__":
-    tokenizer = BartTokenizer.from_pretrained("bart-large")
-    # BOS = tokenizer.special_tokens_map['bos_token']
-    SEP = tokenizer.special_tokens_map["sep_token"]
     datagenerators = {
-        "train": [generate_coqa_seq2seq("coqa-train-v1.0.json", SEP)],
-        "val": [generate_coqa_seq2seq("coqa-dev-v1.0.json", SEP)],
+        "train": [
+            ('coqa-train',generate_coqa_seq2seq("coqa-train-v1.0.json")),
+            ('squad20-train',generate_squad20_seq2seq("train-v2.0.json")),
+        ],
+        "val": [
+            ('coqa-val',generate_coqa_seq2seq("coqa-dev-v1.0.json")),
+            ('squad20-val',generate_squad20_seq2seq("dev-v2.0.json")),
+        ],
     }
     data_path = os.environ["HOME"] + "/data/seq2seq_dialogue"
     os.makedirs(data_path, exist_ok=True)
@@ -49,6 +70,9 @@ if __name__ == "__main__":
         with open(data_path + "/" + ds + ".source", mode="w") as s, open(
             data_path + "/" + ds + ".target", mode="w"
         ) as t:
-            for x, y in tqdm(((x, y) for g in gs for x, y in g)):
-                s.write(x + "\n")
-                t.write(y + "\n")
+            for name,g in gs:
+                for k,(x,y) in enumerate(g):
+                    s.write(x + "\n")
+                    t.write(y + "\n")
+                print('%s: %d' % (name, k))
+

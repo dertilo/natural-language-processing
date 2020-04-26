@@ -20,7 +20,9 @@
 [rouge-calculation](https://github.com/pltrdy/rouge)
 
 # Seq2Seq Dialogue
-
+## datasets
+* [coqa](https://stanfordnlp.github.io/coqa/)
+* [SQUAD 2.0](https://rajpurkar.github.io/SQuAD-explorer/)
 ## setup
 1. add transformers-repo to PYTHONPATH
 2. pip install -r requirements.txt
