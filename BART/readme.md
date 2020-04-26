@@ -23,6 +23,9 @@
 ## datasets
 * [coqa](https://stanfordnlp.github.io/coqa/)
 * [SQUAD 2.0](https://rajpurkar.github.io/SQuAD-explorer/)
+* [persona-chat](https://github.com/DeepPavlov/convai)
+    + https://gist.github.com/thomwolf/ecc52ea728d29c9724320b38619bd6a6
+
 ## setup
 1. add transformers-repo to PYTHONPATH
 2. pip install -r requirements.txt

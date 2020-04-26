@@ -37,6 +37,19 @@ def generate_squad20_seq2seq(file_name):
                         dialogue, target = build_input_target(background, [q], [a['text']], SEP)
                         yield dialogue, target
 
+def generate_personachat_seq2seq(file_name):
+
+    data = data_io.read_json(os.environ["HOME"] + "/data/QA/" + file_name)[
+        "train"
+    ]
+    for datum in data:
+        background = ' '.join(datum['personality'])
+        for d in datum['utterances']:
+            x= d['history']+d['candidates'][-1:]
+            qas, aas = list(zip(*[x[k:k + 2] for k in range(0, len(x), 2)]))
+            dialogue, target = build_input_target(background, qas, aas, SEP)
+            yield dialogue, target
+
 
 def build_input_target(background, q_hist:List[str], a_hist:List[str], SEP_TOKEN):
     def process(s):
@@ -55,6 +68,7 @@ SEP = tokenizer.special_tokens_map["sep_token"]
 if __name__ == "__main__":
     datagenerators = {
         "train": [
+            ('personachat-train',generate_personachat_seq2seq("personachat_self_original.json")),
             ('coqa-train',generate_coqa_seq2seq("coqa-train-v1.0.json")),
             ('squad20-train',generate_squad20_seq2seq("train-v2.0.json")),
         ],
