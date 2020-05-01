@@ -12,19 +12,10 @@ from torchnlp.random import set_seed
 
 
 def main(hparams) -> None:
-    """
-    Main training routine specific for this project
-    :param hparams:
-    """
+
     set_seed(hparams.seed)
-    # ------------------------
-    # 1 INIT LIGHTNING MODEL
-    # ------------------------
     model = BERTClassifier(hparams)
 
-    # ------------------------
-    # 2 INIT EARLY STOPPING
-    # ------------------------
     early_stop_callback = EarlyStopping(
         monitor=hparams.monitor,
         min_delta=0.0,
@@ -32,9 +23,6 @@ def main(hparams) -> None:
         verbose=True,
         mode=hparams.metric_mode,
     )
-    # ------------------------
-    # 3 INIT TRAINER
-    # ------------------------
     save_dir = os.environ['HOME'] + "/data/lightning_experiments/"
     trainer = Trainer(
         logger=setup_testube_logger(save_dir),
@@ -42,6 +30,7 @@ def main(hparams) -> None:
         early_stop_callback=early_stop_callback,
         default_save_path=save_dir,
         gpus=hparams.gpus,
+        num_nodes=hparams.num_nodes,
         distributed_backend="ddp",
         use_amp=True,
         log_gpu_memory='all',
@@ -51,16 +40,12 @@ def main(hparams) -> None:
         val_percent_check=hparams.val_percent_check,
     )
 
-    # --------------------------------
-    # 4 INIT MODEL CHECKPOINT CALLBACK
-    # -------------------------------
     ckpt_path = os.path.join(
         trainer.default_save_path,
         trainer.logger.name,
         f"version_{trainer.logger.version}",
         "checkpoints",
     )
-    # initialize Model Checkpoint Saver
     checkpoint_callback = ModelCheckpoint(
         filepath=ckpt_path,
         save_top_k=hparams.save_top_k,
@@ -71,17 +56,11 @@ def main(hparams) -> None:
     )
     trainer.checkpoint_callback = checkpoint_callback
 
-    # ------------------------
-    # 5 START TRAINING
-    # ------------------------
     trainer.fit(model)
 
 
 if __name__ == "__main__":
-    # ------------------------
-    # TRAINING ARGUMENTS
-    # ------------------------
-    # these are project-wide arguments
+
     parser = HyperOptArgumentParser(
         strategy="random_search",
         description="Minimalist BERT Classifier",
@@ -141,6 +120,8 @@ if __name__ == "__main__":
         ),
     )
 
+    parser.add_argument("--num_nodes", type=int, default=1)
+
     # gpu args
     parser.add_argument("--gpus", type=int, default=0, help="How many gpus")
     parser.add_argument(
@@ -153,11 +134,6 @@ if __name__ == "__main__":
         ),
     )
 
-    # each LightningModule defines arguments relevant to it
     parser = BERTClassifier.add_model_specific_args(parser)
     hparams = parser.parse_args()
-
-    # ---------------------
-    # RUN TRAINING
-    # ---------------------
     main(hparams)
