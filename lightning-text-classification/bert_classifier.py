@@ -23,7 +23,6 @@ from utils import mask_fill
 
 
 class BERTClassifier(pl.LightningModule):
-
     def __init__(self, hparams) -> None:
         super(BERTClassifier, self).__init__()
         self.hparams = hparams
@@ -62,7 +61,6 @@ class BERTClassifier(pl.LightningModule):
             nn.Tanh(),
             nn.Linear(self.encoder_features, self.label_encoder.vocab_size),
         )
-
 
     def unfreeze_encoder(self) -> None:
         if self._frozen:
@@ -127,7 +125,7 @@ class BERTClassifier(pl.LightningModule):
         loss_val = self.loss(model_out, targets)
 
         # in DP mode (default) make sure if result is scalar, there's another dim in the beginning
-        if self.trainer.use_dp or self.trainer.use_ddp2:#TODO(tilo)
+        if self.trainer.use_dp or self.trainer.use_ddp2:  # TODO(tilo)
             loss_val = loss_val.unsqueeze(0)
 
         tqdm_dict = {"train_loss": loss_val}
@@ -149,7 +147,7 @@ class BERTClassifier(pl.LightningModule):
         val_acc = torch.tensor(val_acc)
 
         if self.on_gpu:
-            val_acc = val_acc.cuda(loss_val.device.index)#TODO(tilo): why?
+            val_acc = val_acc.cuda(loss_val.device.index)  # TODO(tilo): why?
 
         # in DP mode (default) make sure if result is scalar, there's another dim in the beginning
         if self.trainer.use_dp or self.trainer.use_ddp2:
@@ -169,7 +167,7 @@ class BERTClassifier(pl.LightningModule):
         """
         val_loss_mean = 0
         val_acc_mean = 0
-        for output in outputs: #TODO(tilo): this is shitty!
+        for output in outputs:  # TODO(tilo): this is shitty!
             val_loss = output["val_loss"]
 
             # reduce manually when using dp
