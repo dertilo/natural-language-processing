@@ -1,7 +1,0 @@
-pandas
-tensorboard
-torch
-transformers
-pytorch-lightning
-test-tube
-pytorch-nlp
